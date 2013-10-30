@@ -8,6 +8,8 @@ from cement.core import log
 from cement.utils.misc import is_true
 from cement.ext.ext_logging import LoggingLogHandler
 from cement.utils import fs
+from scilifelab.utils import config as cf
+from logbook.queues import RedisHandler
 
 class PmLogHandler(log.CementLogHandler):  
     """
@@ -103,8 +105,22 @@ class PmLogHandler(log.CementLogHandler):
         # file
         if self.app.config.get('log', 'file'):
             self._setup_file_log()
+
+        # Redis
+        try:
+            host = self.app.config.get('log', 'redis_host')
+            port = self.app.config.getint('log', 'redis_port')
+            key = self.app.config.get('log', 'redis_key')
+            password = self.app.config.get('log', 'redis_password')
+            extra_fields = {"program": "pm",
+                            "command": "logger"}
+            r_h = RedisHandler(host=host, port=port, key=key, password=password,
+                    extra_fields=extra_fields, level=logbook.INFO, bubble=True)
+            self.backend.handlers.append(r_h)
+        except:
+            self.debug('Not loading RedisHandler')
+            pass
         # nested setup
-        self.backend.handlers.append(logbook.NullHandler(bubble=False))
         self.log_setup = logbook.NestedSetup(self.backend.handlers)
         with self._console_handler.applicationbound():
             self.debug("logging initialized for '%s' using PmLogHandler" % \
